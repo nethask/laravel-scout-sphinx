@@ -1,7 +1,7 @@
 <?php
-namespace Hocnt\LaravelScoutSphinx\Provider;
+namespace Egwk\LaravelScoutSphinx\Provider;
 
-use Hocnt\LaravelScoutSphinx\Engine\SphinxEngine;
+use Egwk\LaravelScoutSphinx\Engine\SphinxEngine;
 use Illuminate\Support\ServiceProvider as Provider;
 use Laravel\Scout\EngineManager;
 

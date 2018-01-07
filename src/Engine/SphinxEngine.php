@@ -1,5 +1,6 @@
 <?php
-namespace Hocnt\LaravelScoutSphinx\Engine;
+
+namespace Egwk\LaravelScoutSphinx\Engine;
 
 use Foolz\SphinxQL\Drivers\Pdo\Connection;
 use Foolz\SphinxQL\Helper;
@@ -11,10 +12,12 @@ use Laravel\Scout\Engines\Engine as AbstractEngine;
 
 class SphinxEngine extends AbstractEngine
 {
+
     /**
      * @var \Illuminate\Support\Collection
      */
     protected $hosts = [];
+
     /**
      * @var \Illuminate\Support\Collection
      */
@@ -44,20 +47,22 @@ class SphinxEngine extends AbstractEngine
      */
     public function update($models)
     {
-        if ($models->isEmpty()) {
+        if ($models->isEmpty())
+        {
             return;
         }
-
+        
         $example = $models->first();
-        $index   = $example->searchableAs();
+        $index = $example->searchableAs();
         $columns = array_keys($example->toSearchableArray());
 
         $sphinxQuery = SphinxQL::create($this->connections)
-            ->replace()
-            ->into($index)
-            ->columns($columns);
+                ->replace()
+                ->into($index)
+                ->columns($columns);
 
-        $models->each(function ($model) use (&$sphinxQuery) {
+        $models->each(function ($model) use (&$sphinxQuery)
+        {
             $sphinxQuery->values($model->toSearchableArray());
         });
 
@@ -73,20 +78,21 @@ class SphinxEngine extends AbstractEngine
      */
     public function delete($models)
     {
-        if ($models->isEmpty()) {
+        if ($models->isEmpty())
+        {
             return;
         }
-
+        
         $model = $models->first();
         $index = $model->searchableAs();
-        $key   = $models->pluck($model->getKeyName())
-            ->values()->all();
+        $key = $models->pluck($model->getKeyName())
+                        ->values()->all();
 
         SphinxQL::create($this->connections)
-            ->delete()
-            ->from($index)
-            ->where('id', 'IN', $key)
-            ->execute();
+                ->delete()
+                ->from($index)
+                ->where('id', 'IN', $key)
+                ->execute();
     }
 
     /**
@@ -98,22 +104,24 @@ class SphinxEngine extends AbstractEngine
      */
     public function search(Builder $builder)
     {
-        $model        = $builder->model;
-        $index        = $model->searchableAs();
+        $model = $builder->model;
+        $index = $model->searchableAs();
         $column_index = $model->toSearchableArray();
 
-        if (array_key_exists('id', $column_index)) {
+        if (array_key_exists('id', $column_index))
+        {
             unset($column_index['id']);
         }
 
         $columns = array_keys($column_index);
 
         $query = SphinxQL::create($this->connections)
-            ->select("*")
-            ->from($index)
-            ->match($columns, $builder->query);
+                ->select("*")
+                ->from($index)
+                ->match($columns, $builder->query);
 
-        if ($limit = $builder->limit) {
+        if ($limit = $builder->limit)
+        {
             $query = $query->limit($limit);
         }
 
@@ -123,6 +131,8 @@ class SphinxEngine extends AbstractEngine
     /**
      * Perform the given search on the engine.
      *
+     * @author buchin@github.com
+     * 
      * @param  \Laravel\Scout\Builder $builder
      * @param  int                    $perPage
      * @param  int                    $page
@@ -131,29 +141,45 @@ class SphinxEngine extends AbstractEngine
      */
     public function paginate(Builder $builder, $perPage, $page)
     {
-        $model        = $builder->model;
-        $index        = $model->searchableAs();
+        $model = $builder->model;
+        $index = $model->searchableAs();
         $column_index = $model->toSearchableArray();
 
-        if (array_key_exists('id', $column_index)) {
+        if (array_key_exists('id', $column_index))
+        {
             unset($column_index['id']);
         }
 
         $columns = array_keys($column_index);
 
         $query = SphinxQL::create($this->connections)
-            ->select("*")
-            ->from($index)
-            ->match($columns, $builder->query)
-            ->limit(($page - 1) * $perPage, $perPage)
-            ->enqueue(Helper::create($this->connections)->showMeta());
+                ->select("*")
+                ->from($index)
+                ->match($columns, $builder->query)
+                ->limit(($page - 1) * $perPage, $perPage);
 
-        return $query->executeBatch();
+        $resultset = $query->execute();
+        $result['results'] = $this->mapGet(
+                $resultset, $builder->model
+        );
+
+        $meta = collect($query->enqueue(Helper::create($this->connections)->showMeta())->execute()->getStored());
+
+        $meta->map(function($item, $key) use (&$result)
+        {
+            $result['meta'][str_replace('[0]', '', $item['Variable_name'])] = $item['Value'];
+        });
+
+        $result['count'] = $result['meta']['total'];
+
+        return $result;
     }
 
     /**
      * Map the given results to instances of the given model.
-     *
+     * 
+     * @author buchin@github.com
+     * 
      * @param  mixed                               $results
      * @param  \Illuminate\Database\Eloquent\Model $model
      *
@@ -161,13 +187,9 @@ class SphinxEngine extends AbstractEngine
      */
     public function map($results, $model)
     {
-        $key = collect($results->current())
-            ->pluck($model->getKeyName())
-            ->values()->all();
-        return $model
-            ->whereIn($model->getKeyName(), $key)
-            ->get();
+        return $results['results'];
     }
+
     /**
      * [mapGet description]
      * @param  [type] $results [description]
@@ -177,13 +199,14 @@ class SphinxEngine extends AbstractEngine
     public function mapGet($results, $model)
     {
         $key = collect($results->getStored())
-            ->pluck($model->getKeyName())
-            ->values()->all();
+                        ->pluck($model->getKeyName())
+                        ->values()->all();
 
         return $model
-            ->whereIn($model->getKeyName(), $key)
-            ->get();
+                        ->whereIn($model->getKeyName(), $key)
+                        ->get();
     }
+
     /**
      * [mapIds description]
      * @param  [type] $results [description]
@@ -192,18 +215,23 @@ class SphinxEngine extends AbstractEngine
     public function mapIds($results)
     {
         return collect($results->getStored())
-            ->pluck('id')
-            ->values()->all();
+                        ->pluck('id')
+                        ->values()->all();
     }
+
     /**
      * [getTotalCount description]
+     * 
+     * @author buchin@github.com
+     * 
      * @param  [type] $results [description]
      * @return [type]          [description]
      */
     public function getTotalCount($results)
     {
-        return $results->count();
+        return $results['count'];
     }
+
     /**
      * [get description]
      * @param  Builder $builder [description]
@@ -212,7 +240,7 @@ class SphinxEngine extends AbstractEngine
     public function get(Builder $builder)
     {
         return Collection::make($this->mapGet(
-            $this->search($builder), $builder->model
+                                $this->search($builder), $builder->model
         ));
     }
 
