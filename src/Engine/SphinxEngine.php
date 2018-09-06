@@ -130,7 +130,7 @@ class SphinxEngine extends AbstractEngine
      *
      * @return Collection
      */
-    public function map($results, $model)
+    public function map(Builder $builder, $results, $model)
     {
         return $results['results'];
     }
